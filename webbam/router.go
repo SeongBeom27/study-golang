@@ -24,29 +24,24 @@ func (r *router) HandleFunc(method, pattern string, h HandlerFunc) {
 	m[pattern] = h
 }
 
-func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	// http 메서드에 맞는 모든 handlers를 반복하여 요청 URL에 해당하는 handler를 찾음
-	for pattern, handler := range r.handlers[req.Method] {
-		if ok, params := match(pattern, req.URL.Path); ok {
-			// Context 생성
-			c := Context{
-				Params:         make(map[string]interface{}),
-				ResponseWriter: w,
-				Request:        req,
-			}
+func (r *router) handler() HandlerFunc {
+	return func(c *Context) {
+		// http 메서드에 맞는 모든 hanlders를 반복하며 요청 URL에 해당하는 handler를 찾음
+		for pattern, handler := range r.handlers[c.Request.Method] {
+			if ok, params := match(pattern, c.Request.URL.Path); ok {
+				for k, v := range params {
+					c.Params[k] = v
+				}
 
-			for k, v := range params {
-				c.Params[k] = v
+				// 요청 URL에 해당하는 handler 수행
+				handler(c)
+				return
 			}
-
-			// 요청 URL에 해당하는 handler 수행
-			handler(&c)
-			return
 		}
-	}
 
-	http.NotFound(w, req)
-	return
+		http.NotFound(c.ResponseWriter, c.Request)
+		return
+	}
 }
 
 func match(pattern, path string) (bool, map[string]string) {
