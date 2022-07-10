@@ -24,6 +24,27 @@ func (r *router) HandleFunc(method, pattern string, h HandlerFunc) {
 	m[pattern] = h
 }
 
+func(r *router) handler() HandlerFunc {
+	return func(c *Context) {
+		// http 메서드에 맞는 모든 handlers를 반복하여 요청 URL에 해당하는 handler를 찾음
+		for pattern, handler := range r.handlers[c.Request.Method] {
+			if ok, params := match(pattern, c.Request.URL.Path); ok {
+				for k, v := range params {
+					c.Params[k] = v
+				}
+
+				// 요청 URL에 해당하는 handler 수행
+				handler(c)
+				return
+			}
+		}
+
+		// 요청 URL에 해당하는 handler를 찾지 못하면 Not Found 에러 처리
+		http.NotFound(c.ResponseWriter, c.Request)
+		return
+	}
+}
+
 func (r *router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// http 메서드에 맞는 모든 handlers를 반복하여 요청 URL에 해당하는 handler를 찾음
 	for pattern, handler := range r.handlers[req.Method] {
